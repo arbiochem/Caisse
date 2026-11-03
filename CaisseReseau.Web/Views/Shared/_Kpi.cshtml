@@ -1,0 +1,2 @@
+@model (string Label, string Value, string Hint, string Icon, string Tone)
+<article class="kpi-card"><div class="kpi-icon tone-@Model.Tone">@Icons.Icon(Model.Icon, 21)</div><div class="kpi-body"><span>@Model.Label</span><strong>@Model.Value</strong><small>@Model.Hint</small></div></article>

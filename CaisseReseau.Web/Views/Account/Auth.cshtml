@@ -1,0 +1,200 @@
+@model AuthVm
+@{
+    Layout = null;
+    var title = Model.Screen switch
+    {
+        "REQUEST_RESET" => "Mot de passe oublié",
+        "UPDATE_PASSWORD" => "Choisissez votre mot de passe",
+        _ => "Connexion à votre agence"
+    };
+    var intro = Model.Screen switch
+    {
+        "REQUEST_RESET" => "Saisissez votre adresse professionnelle. Vous recevrez un lien sécurisé pour choisir un nouveau mot de passe.",
+        "UPDATE_PASSWORD" => "Saisissez le nouveau mot de passe deux fois pour le confirmer.",
+        _ => "Utilisez l’adresse e-mail attribuée à la caisse de votre agence."
+    };
+}
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction Crédit et Recouvrement — Caisse Réseau</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/login-ticket.css" asp-append-version="true" />
+</head>
+<body class="antialiased bd-body">
+<main class="bd-page">
+    <div class="bd-wrap">
+        <div class="bd-card">
+
+            <aside class="bd-id">
+                <svg class="bd-rosette" viewBox="-100 -100 200 200" aria-hidden="true" focusable="false">
+                    <g class="bd-rosette-a">
+                        @for (var i = 0; i < 36; i++)
+                        {
+                            <ellipse rx="94" ry="34" transform="rotate(@(i * 5))" />
+                        }
+                    </g>
+                    <g class="bd-rosette-b">
+                        @for (var i = 0; i < 18; i++)
+                        {
+                            <ellipse rx="64" ry="22" transform="rotate(@(i * 10 + 5))" />
+                        }
+                    </g>
+                </svg>
+
+                <div class="bd-id-top">
+                    <img src="~/images/logo-banner.png" alt="AR Biochem Group" class="bd-logo" />
+                    <p class="bd-brandname">Caisse Réseau</p>
+                    <p class="bd-brandsub">Direction Crédit et Recouvrement</p>
+                </div>
+
+                <ul class="bd-points">
+                    <li>@Domain.Agencies.Length agences sécurisées</li>
+                    <li>Tickets numérotés sans doublon</li>
+                    <li>Ticket 80 mm en 1 exemplaire</li>
+                </ul>
+            </aside>
+
+            <section class="bd-main">
+                <div class="bd-content">
+                    <h1 class="bd-title">@title</h1>
+                    <p class="bd-intro">@intro</p>
+
+                    @if (Model.Screen == "LOGIN")
+                    {
+                        <form class="bd-form" method="post" asp-action="Login" asp-controller="Account">
+                            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                            <div class="bd-field">
+                                <label for="bd-email">Adresse e-mail professionnelle</label>
+                                <div class="bd-input">
+                                    <input id="bd-email" type="email" name="email" value="@Model.Email" placeholder="caisse.agence@arbiochem.mg" autocomplete="username" required data-autofocus />
+                                </div>
+                            </div>
+                            <div class="bd-field">
+                                <label for="bd-password">Mot de passe</label>
+                                <div class="bd-input">
+                                    <input id="bd-password" class="has-toggle" type="password" name="password" placeholder="Votre mot de passe" autocomplete="current-password" required />
+                                    <button type="button" class="bd-eye" aria-pressed="false" aria-label="Afficher le mot de passe">
+                                        <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.4 6.5A17.7 17.7 0 0 0 2 12s3.6 7 10 7c1.7 0 3.2-.4 4.5-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                                    </button>
+                                </div>
+                                <p class="bd-caps" hidden>Le verrouillage des majuscules est activé.</p>
+                            </div>
+                            <div class="bd-row">
+                                <a class="bd-link" asp-action="ForgotPassword" asp-controller="Account">Mot de passe oublié&nbsp;?</a>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Error)) { <div class="bd-msg bd-msg--error" role="alert">@Model.Error</div> }
+                            @if (!string.IsNullOrEmpty(Model.Notice)) { <div class="bd-msg bd-msg--ok" role="status">@Model.Notice</div> }
+                            <button class="bd-submit" type="submit" data-loading="Connexion en cours…">Se connecter</button>
+                            <p class="bd-help">Première connexion&nbsp;? Utilisez les accès transmis par la Direction Crédit et Recouvrement.</p>
+                        </form>
+                    }
+
+                    @if (Model.Screen == "REQUEST_RESET")
+                    {
+                        <form class="bd-form" method="post" asp-action="ForgotPassword" asp-controller="Account">
+                            <div class="bd-field">
+                                <label for="bd-email">Adresse e-mail professionnelle</label>
+                                <div class="bd-input">
+                                    <input id="bd-email" type="email" name="email" value="@Model.Email" placeholder="caisse.agence@arbiochem.mg" autocomplete="email" required data-autofocus />
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Error)) { <div class="bd-msg bd-msg--error" role="alert">@Model.Error</div> }
+                            @if (!string.IsNullOrEmpty(Model.Notice)) { <div class="bd-msg bd-msg--ok" role="status">@Model.Notice</div> }
+                            <button class="bd-submit" type="submit" data-loading="Envoi en cours…">Envoyer un nouveau lien</button>
+                            <div class="bd-row bd-row--left">
+                                <a class="bd-link" asp-action="Login" asp-controller="Account">← Retour à la connexion</a>
+                            </div>
+                            <p class="bd-help">Le lien est personnel, temporaire et utilisable une seule fois.</p>
+                        </form>
+                    }
+
+                    @if (Model.Screen == "UPDATE_PASSWORD")
+                    {
+                        <form class="bd-form" method="post" asp-action="ResetPassword" asp-controller="Account">
+                            <input type="hidden" name="email" value="@Model.Email" />
+                            <input type="hidden" name="token" value="@Model.Token" />
+                            <div class="bd-field">
+                                <label for="bd-new">Nouveau mot de passe</label>
+                                <div class="bd-input">
+                                    <input id="bd-new" class="has-toggle" type="password" name="newPassword" placeholder="8 caractères minimum" autocomplete="new-password" minlength="8" required data-autofocus />
+                                    <button type="button" class="bd-eye" aria-pressed="false" aria-label="Afficher le mot de passe">
+                                        <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.4 6.5A17.7 17.7 0 0 0 2 12s3.6 7 10 7c1.7 0 3.2-.4 4.5-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                                    </button>
+                                </div>
+                                <p class="bd-caps" hidden>Le verrouillage des majuscules est activé.</p>
+                            </div>
+                            <div class="bd-field">
+                                <label for="bd-confirm">Confirmer le nouveau mot de passe</label>
+                                <div class="bd-input">
+                                    <input id="bd-confirm" type="password" name="passwordConfirmation" placeholder="Saisissez-le une seconde fois" autocomplete="new-password" minlength="8" required />
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Error)) { <div class="bd-msg bd-msg--error" role="alert">@Model.Error</div> }
+                            <button class="bd-submit" type="submit" data-loading="Enregistrement…">Enregistrer le nouveau mot de passe</button>
+                            <div class="bd-row bd-row--left">
+                                <a class="bd-link" asp-action="Login" asp-controller="Account">Annuler et revenir à la connexion</a>
+                            </div>
+                            <p class="bd-help">Utilisez un mot de passe unique que vous ne partagez avec personne.</p>
+                        </form>
+                    }
+                </div>
+
+                <p class="bd-secure">Accès protégé par authentification et isolation des données par agence.</p>
+            </section>
+
+        </div>
+    </div>
+</main>
+<script>
+(function () {
+    var form = document.querySelector(".bd-form");
+    if (!form) return;
+
+    var first = form.querySelector("[data-autofocus]");
+    if (first) first.focus({ preventScroll: true });
+
+    var btn = form.querySelector(".bd-submit");
+    var label = btn.textContent;
+    form.addEventListener("submit", function () {
+        btn.disabled = true;
+        btn.classList.add("is-loading");
+        btn.textContent = btn.getAttribute("data-loading") || "Veuillez patienter…";
+    });
+    window.addEventListener("pageshow", function (e) {
+        if (e.persisted) {
+            btn.disabled = false;
+            btn.classList.remove("is-loading");
+            btn.textContent = label;
+        }
+    });
+
+    form.querySelectorAll(".bd-eye").forEach(function (eye) {
+        eye.addEventListener("click", function () {
+            var input = eye.parentElement.querySelector("input");
+            var show = input.type === "password";
+            input.type = show ? "text" : "password";
+            eye.setAttribute("aria-pressed", show ? "true" : "false");
+            eye.setAttribute("aria-label", show ? "Masquer le mot de passe" : "Afficher le mot de passe");
+            input.focus();
+        });
+    });
+
+    form.querySelectorAll(".bd-field").forEach(function (field) {
+        var hint = field.querySelector(".bd-caps");
+        var input = field.querySelector("input");
+        if (!hint || !input) return;
+        function check(e) { hint.hidden = !(e.getModifierState && e.getModifierState("CapsLock")); }
+        input.addEventListener("keydown", check);
+        input.addEventListener("keyup", check);
+        input.addEventListener("blur", function () { hint.hidden = true; });
+    });
+})();
+</script>
+</body>
+</html>

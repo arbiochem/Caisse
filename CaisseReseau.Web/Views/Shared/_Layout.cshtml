@@ -1,0 +1,90 @@
+@{
+    var shell = (ShellModel)ViewData["Shell"]!;
+    var account = shell.Account;
+    var toast = TempData["Toast"] as string;
+    var directSupervisor = account.DirectSupervisor;
+    var initials = account.IsDirection ? "DR" : directSupervisor ? "SD" : account.ReadOnly ? "SV" : (account.AgencyCode ?? "").PadRight(2).Substring(0, 2).Trim();
+    var title = account.IsDirection ? "Direction Crédit et Recouvrement" : directSupervisor ? "Supervision caisse directe" : account.ReadOnly ? "Supervision caisse" : account.AgencyName;
+    var subtitle = account.IsDirection ? "Lecture, extraction et régularisation"
+        : account.Role == Roles.SupervisorAgency ? "Saisie Mahajanga · régul. autres agences"
+        : directSupervisor ? "Lecture, extraction et régularisation"
+        : account.ReadOnly ? "Lecture et extraction" : "Accès agence";
+}
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction Crédit et Recouvrement — Caisse Réseau</title>
+    <meta name="description" content="Gestion sécurisée des encaissements, acomptes, imputations et clôtures par société du groupe." />
+    <meta property="og:title" content="Direction Crédit et Recouvrement — Caisse Réseau" />
+    <meta property="og:image" content="/og.png" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/login-ticket.css" asp-append-version="true" />
+</head>
+<body class="antialiased">
+<form id="antiforgery" hidden>@Html.AntiForgeryToken()</form>
+<div class="app-shell" id="app-shell" data-agency="@shell.SelectedAgency" data-writable="@(account.CanWrite ? "1" : "0")">
+    <aside class="sidebar" id="sidebar">
+        <div class="bd-id-top1">
+            <img src="~/images/logo-banner.png" alt="AR Biochem Group" class="bd-logo1" />
+            <p class="bd-brandname1">Caisse Réseau</p>
+            <p class="bd-brandsub1">Direction Crédit et Recouvrement</p>
+        </div>
+        <nav class="main-nav" aria-label="Navigation principale">
+            <span class="nav-caption">ESPACE DE TRAVAIL</span>
+            @foreach (var item in shell.Nav)
+            {
+                <button type="button" class="@(shell.ActiveView == item.Id ? "active" : "")" data-nav="@item.Url">@Icons.Icon(item.Icon, 19)<span>@item.Label</span>@if (item.Badge != null){<em>@item.Badge</em>}</button>
+            }
+            @if (account.IsDirection)
+            {
+                <span class="nav-caption second">ADMINISTRATION</span>
+                <button type="button" class="@(shell.ActiveView == "admin" ? "active" : "")" data-nav="@Url.Action("Index", "Admin")">@Icons.Icon("settings", 19)<span>Paramètres</span></button>
+            }
+        </nav>
+        <div class="sidebar-status"><div class="status-ring"><span>@shell.ClosedAgencies</span><small>/@shell.Agencies.Count</small></div><div><strong>Caisses fermées</strong><small>@(shell.ClosedAgencies == shell.Agencies.Count ? "Toutes clôturées" : "Suivi en cours")</small></div></div>
+        <div class="sidebar-user"><div class="avatar">@initials</div><div><strong>@title</strong><small>@subtitle</small></div><button type="button" class="sidebar-signout" data-logout aria-label="Se déconnecter">@Icons.Icon("logout", 17)</button></div>
+    </aside>
+    <button type="button" class="nav-backdrop" id="nav-backdrop" aria-label="Fermer le menu" hidden></button>
+    <main class="main-area">
+        <header class="topbar">
+            <button type="button" class="mobile-menu" id="mobile-menu" aria-label="Ouvrir le menu">@Icons.Icon("menu", 20)</button>
+            <div class="page-ident"><span>@shell.PageTitle</span><small>@Fmt.Date(MadagascarTime.Today)</small></div>
+            <div class="topbar-actions">
+                @if (account.CanWrite)
+                {
+                    <button type="button" class="cashier-quick" id="open-session">@Icons.Icon("user", 16)<span>Caissier du jour</span></button>
+                }
+                <label class="agency-select">@Icons.Icon("building", 17)<select id="agency-select" @(account.CanViewAll ? "" : "disabled")>
+                    @if (account.CanViewAll){<option value="ALL" selected="@(shell.SelectedAgency == "ALL")">Toutes les agences</option>}
+                    @foreach (var item in shell.Agencies){<option value="@item.Code" selected="@(shell.SelectedAgency == item.Code)">@item.Name</option>}
+                </select>@Icons.Icon("chevron", 14)</label>
+                <button type="button" class="icon-button" data-logout aria-label="Se déconnecter">@Icons.Icon("logout", 19)</button>
+                @if (account.CanWrite)
+                {
+                    <button type="button" class="primary-button desktop-quick" data-nav="@Url.Action("New", "Operations")">@Icons.Icon("plus", 18) Nouvelle opération</button>
+                }
+            </div>
+        </header>
+        <div class="content-wrap">
+            @RenderBody()
+        </div>
+    </main>
+    <footer class="foot">Développé par l’équipe <strong>IT Arbiochem</strong> © @DateTime.Now.Year</footer>
+    <div id="receipt-host"></div>
+    @if (!string.IsNullOrEmpty(toast))
+    {
+        <div class="toast" id="server-toast"><span>@Icons.Icon("check", 18)</span>@toast</div>
+    }
+    <div id="toast-host"></div>
+    @if (shell.SessionDialog != null)
+    {
+        @await Html.PartialAsync("_SessionDialog", shell.SessionDialog)
+    }
+</div>
+<form id="logout-form" method="post" action="@Url.Action("Logout", "Account")" hidden>@Html.AntiForgeryToken()</form>
+<script src="~/js/site.js" asp-append-version="true"></script>
+</body>
+</html>

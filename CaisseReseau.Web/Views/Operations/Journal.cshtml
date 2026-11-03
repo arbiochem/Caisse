@@ -1,0 +1,101 @@
+@using System.Text.Json
+@model JournalVm
+@{
+    var ops = Model.Operations;
+    var ticket = Model.NewTicket;
+}
+<div class="view-stack" id="journal-view" data-record-url="@Url.Action("RecordPrint", "Operations")" data-receipt-url="@Url.Action("Receipt", "Operations")" data-impute-url="@Url.Action("Impute", "Operations")" data-allocate-url="@Url.Action("Allocate", "Operations")" data-auto-print="@(ticket != null ? ticket.Id.ToString() : "")">
+    <section class="section-title"><div><p class="eyebrow">TRAÇABILITÉ</p><h1>Journal de caisse</h1><p>Recherchez par ticket, facture ou client, puis complétez l’imputation ultérieurement.</p></div><button type="button" class="secondary-button" id="journal-export">@Icons.Icon("download", 17) Exporter Excel (CSV)</button></section>
+    @if (ticket != null)
+    {
+        <section class="ticket-ready-banner"><span class="ticket-ready-icon">@Icons.Icon("receipt", 24)</span><div><small>TICKET GÉNÉRÉ</small><strong>@ticket.TicketNumber</strong><p>@ticket.CustomerName · @Fmt.Money(ticket.Amount) · un exemplaire 80 mm</p></div>@await Html.PartialAsync("_PrintButton", (ticket.Id, ticket.PrintCount, true))</section>
+    }
+    <section class="panel journal-panel">
+        <div class="journal-tabs" id="journal-tabs">
+            <button type="button" class="selected" data-channel-tab="ALL">Toutes <span>@ops.Count</span></button>
+            @foreach (var item in Domain.Channels)
+            {
+                <button type="button" data-channel-tab="@item.Value">@item.Short<span>@ops.Count(o => o.Channel == item.Value)</span></button>
+            }
+        </div>
+        <div class="table-toolbar">
+            <label class="search-box">@Icons.Icon("search", 17)<input id="journal-search" placeholder="Ticket, facture, client ou référence…" /></label>
+            <select id="journal-sage"><option value="ALL">Tous les statuts SAGE</option><option>À imputer</option><option>Imputé</option></select>
+            <span id="journal-count">@ops.Count ligne(s)</span>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table ticket-table">
+                <thead><tr><th>Date / ticket</th><th>Caissier</th><th>Client / facture</th><th>Société</th><th>Mode / nature</th><th class="num">Entrée</th><th class="num">Sortie</th><th>Imputation SAGE</th><th>Actions</th></tr></thead>
+                <tbody id="journal-body">
+                    @foreach (var op in ops)
+                    {
+                        var remaining = op.TransactionNature == "ACOMPTE" ? op.Amount - op.AllocatedAmount : 0;
+                        var canAct = Model.Account.HasAgencyWriteAccess(op.AgencyCode);
+                        var search = (op.TicketNumber + " " + op.InvoiceNumber + " " + op.CustomerName + " " + op.Reference).ToLowerInvariant();
+                        var csv = JsonSerializer.Serialize(new object[]
+                        {
+                            Fmt.Iso(op.TransactionDate), op.AgencyName, op.CashierName, Domain.CompanyLabel(op.Company),
+                            Domain.ChannelLabel(op.Channel), Domain.NatureLabel(op.TransactionNature), op.TicketNumber,
+                            op.InvoiceNumber ?? "", op.CustomerName, op.Direction == "ENTREE" ? op.Amount : "",
+                            op.Direction == "SORTIE" ? op.Amount : "", op.SageStatus, op.PrintCount,
+                        });
+                        <tr data-channel="@op.Channel" data-sage="@op.SageStatus" data-search="@search" data-csv="@csv" data-id="@op.Id">
+                            <td><div class="ticket-cell"><strong>@op.TicketNumber</strong><small>@Fmt.Date(op.TransactionDate) · @(op.PrintCount > 0 ? op.PrintCount + " impression(s)" : "Non imprimé")</small></div></td>
+                            <td><strong>@op.CashierName</strong></td>
+                            <td><div class="client-cell"><strong>@op.CustomerName</strong><small>@(op.InvoiceNumber ?? (op.TransactionNature == "ACOMPTE" ? "Acompte disponible " + Fmt.Money(remaining) : "—"))</small></div></td>
+                            <td><span class="company-tag @Domain.CompanyClass(op.Company)">@Domain.CompanyLabel(op.Company)</span></td>
+                            <td><span class="channel-chip">@Domain.ChannelLabel(op.Channel)</span><small class="nature-label">@Domain.NatureLabel(op.TransactionNature)</small></td>
+                            <td class="num entry-num">@(op.Direction == "ENTREE" ? Fmt.Money(op.Amount) : "—")</td>
+                            <td class="num exit-num">@(op.Direction == "SORTIE" ? Fmt.Money(op.Amount) : "—")</td>
+                            <td>
+                                @if (op.SageStatus == Domain.Imputed)
+                                {
+                                    <span class="status-badge sage-ok">@Icons.Icon("check", 12) Imputé</span>
+                                }
+                                else if (canAct)
+                                {
+                                    <button type="button" class="sage-action" data-impute="@op.Id">Marquer imputé</button>
+                                }
+                                else
+                                {
+                                    <span class="status-badge sage-wait">À imputer</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-stack">
+                                    @if (canAct && op.TransactionNature != "TRANSFERT_ACOMPTE")
+                                    {
+                                        @await Html.PartialAsync("_PrintButton", (op.Id, op.PrintCount, false))
+                                    }
+                                    else
+                                    {
+                                        <span class="read-only-chip">Lecture</span>
+                                    }
+                                    @if (canAct && op.TransactionNature == "ACOMPTE" && remaining > 0)
+                                    {
+                                        <button type="button" class="deposit-action" data-deposit="@op.Id" data-ticket="@op.TicketNumber" data-customer="@op.CustomerName" data-company="@Domain.CompanyLabel(op.Company)" data-remaining="@remaining" data-total="@op.Amount">Affecter l’acompte</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div id="journal-empty" @(ops.Count > 0 ? "hidden" : "")>@await Html.PartialAsync("_Empty", ("Aucune ligne trouvée", "Modifiez les filtres ou recherchez un autre ticket."))</div>
+        </div>
+    </section>
+    <div class="session-dialog-backdrop" id="deposit-dialog" role="presentation" hidden>
+        <section class="session-dialog deposit-dialog" role="dialog" aria-modal="true">
+            <div class="session-dialog-head"><div class="session-dialog-mark">@Icons.Icon("swap", 20)</div><div><p>AFFECTATION D’ACOMPTE</p><h2 id="dep-ticket"></h2></div></div>
+            <form id="deposit-form">
+                <div class="opening-balance-card"><div><small>Client</small><strong id="dep-customer"></strong></div><span id="dep-available"></span></div>
+                <label><span>Société bénéficiaire</span><select id="dep-company">@foreach (var item in Domain.Companies){<option value="@item.Code" selected="@(item.Code == "ACTIVO")">@item.Label</option>}</select></label>
+                <label><span>N° facture à régler *</span><input id="dep-invoice" placeholder="Facture SAGE" /></label>
+                <label><span>Montant affecté *</span><input type="number" id="dep-amount" min="1" step="1" /></label>
+                <div class="handover-note"><strong>Traçabilité automatique :</strong> <span id="dep-note"></span></div>
+                <div class="session-error" id="dep-error" hidden></div>
+                <div class="session-dialog-actions"><button type="button" class="secondary-button" id="dep-cancel">Annuler</button><button type="submit" class="primary-button" id="dep-submit">Affecter l’acompte</button></div>
+            </form>
+        </section>
+    </div>
+</div>

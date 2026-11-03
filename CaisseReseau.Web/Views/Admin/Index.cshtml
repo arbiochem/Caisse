@@ -1,0 +1,28 @@
+@model AdminVm
+<div class="view-stack">
+    <section class="section-title"><div><p class="eyebrow">ADMINISTRATION</p><h1>Comptes et accès</h1><p>Un compte correspond à une adresse e-mail professionnelle, un rôle et, le cas échéant, une agence.</p></div></section>
+    @if (!string.IsNullOrEmpty(Model.Error)){<div class="inline-error">@Icons.Icon("warning", 17)@Model.Error</div>}
+    @if (!string.IsNullOrEmpty(Model.Notice)){<div class="handover-note">@Model.Notice</div>}
+    <section class="panel"><div class="panel-head"><div><h2>@Model.Accounts.Count compte(s)</h2><p>Les mots de passe ne sont jamais affichés.</p></div></div>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>E-mail</th><th>Rôle</th><th>Agence</th><th>Régularisation</th><th>Statut</th></tr></thead><tbody>
+            @foreach (var a in Model.Accounts)
+            {
+                <tr><td><strong>@a.Email</strong></td><td>@a.Role</td><td>@(a.AgencyCode ?? "—")</td><td>@(a.CanRegularizeClosures ? "Oui" : "Non")@(a.RegularizationExcludedAgencyCode != null ? " (hors " + a.RegularizationExcludedAgencyCode + ")" : "")</td><td><span class="@(a.Active ? "status-badge sage-ok" : "status-badge sage-wait")">@(a.Active ? "Actif" : "Désactivé")</span></td></tr>
+            }
+        </tbody></table></div>
+    </section>
+    <section class="panel form-panel"><div class="form-section-head"><span>+</span><div><h2>Créer ou modifier un compte</h2><p>Saisissez une adresse existante pour la modifier. Le mot de passe est facultatif pour un compte existant.</p></div></div>
+        <form method="post" asp-action="Save" asp-controller="Admin">
+            <div class="form-grid">
+                <label><span>Adresse e-mail *</span><input type="email" name="email" required /></label>
+                <label><span>Rôle *</span><select name="role">@foreach (var r in Roles.All){<option value="@r">@r</option>}</select></label>
+                <label><span>Agence (comptes agence)</span><select name="agencyCode"><option value="">—</option>@foreach (var item in Model.Agencies){<option value="@item.Code">@item.Name</option>}</select></label>
+                <label><span>Agence exclue de la régularisation</span><select name="excludedAgency"><option value="">—</option>@foreach (var item in Model.Agencies){<option value="@item.Code">@item.Name</option>}</select></label>
+                <label><span>Mot de passe (10 caractères minimum)</span><input type="password" name="password" autocomplete="new-password" /></label>
+                <label class="fr-audit-choice"><span><input type="checkbox" name="canRegularize" value="true" /><input type="hidden" name="canRegularize" value="false" /> Peut régulariser les clôtures</span></label>
+                <label class="fr-audit-choice"><span><input type="checkbox" name="active" value="true" checked /><input type="hidden" name="active" value="false" /> Compte actif</span></label>
+            </div>
+            <button class="primary-button" type="submit">Enregistrer le compte</button>
+        </form>
+    </section>
+</div>

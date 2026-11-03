@@ -1,0 +1,85 @@
+@model EntryVm
+@{
+    var session = Model.Session;
+    var canSave = session != null && session.Status == "OPEN";
+}
+<div class="view-stack entry-view" id="entry-view" data-agency="@Model.AgencyCode" data-agency-name="@Model.AgencyName" data-today="@Model.Today" data-open="@(canSave ? "1" : "0")" data-session-status="@(session?.Status ?? "")" data-journal-url="@Url.Action("Journal", "Operations")" data-create-url="@Url.Action("Create", "Operations")">
+    <section class="section-title"><div><p class="eyebrow">SAISIE GUIDÉE</p><h1>Nouvelle opération de caisse</h1><p>Le mode de paiement et la nature de l’opération sont maintenant deux informations distinctes.</p></div>
+        @if (canSave)
+        {
+            <span class="secure-chip">@Icons.Icon("user", 14) @session!.CashierName</span>
+        }
+        else
+        {
+            <span class="deadline-badge">@Icons.Icon("lock", 14) @(session != null && session.Status == "CLOSED" ? "Caisse fermée" : "Caisse non ouverte")</span>
+        }
+    </section>
+    @if (session == null)
+    {
+        <section class="session-required"><div>@Icons.Icon("warning", 20)<p><strong>Ouverture journalière requise</strong><span>L’ouverture doit être faite en ligne à partir de 06 h.</span></p></div><button type="button" class="primary-button" data-open-session>Ouvrir la caisse</button></section>
+    }
+    <form class="entry-layout" id="entry-form" novalidate>
+        <div class="panel form-panel">
+            <div class="form-section-head"><span>1</span><div><h2>Mode de paiement</h2><p>Les espèces constituent désormais un seul mode.</p></div></div>
+            <div class="channel-picker" id="channel-picker">
+                @foreach (var item in Domain.Channels)
+                {
+                    <button type="button" data-channel="@item.Value" class="@(item.Value == "ESPECE" ? "selected" : "")"><span>@Icons.Icon(item.Icon, 19)</span><strong>@item.Short</strong>@if (item.Value == "ESPECE"){<i data-check>@Icons.Icon("check", 11)</i>}</button>
+                }
+            </div>
+            <div class="form-section-head separated"><span>2</span><div><h2>Nature et informations</h2><p>Au comptant, règlement ou acompte s’applique à tous les modes de paiement.</p></div></div>
+            <div class="nature-picker" id="nature-picker">
+                <span id="nature-buttons" style="display: contents">
+                    @foreach (var nature in Domain.EntryNatures)
+                    {
+                        <button type="button" data-nature="@nature" class="@(nature == "REGLEMENT" ? "selected" : "")">@Domain.NatureLabel(nature)</button>
+                    }
+                </span>
+                <span class="nature-fixed" id="nature-fixed" hidden>Versement / dégagement</span>
+            </div>
+            <div class="form-grid">
+                <label><span>Agence *</span><select id="f-agency" disabled><option value="@Model.AgencyCode">@Model.AgencyName</option></select></label>
+                <label><span>Société *</span><select id="f-company">@foreach (var item in Domain.Companies){<option value="@item.Code">@item.Label</option>}</select></label>
+                <label><span>Date *</span><input type="date" id="f-date" value="@Model.Today" max="@Model.Today" required /></label>
+                <label><span>Sens *</span><select id="f-direction"><option value="ENTREE">Entrée / encaissement</option><option value="SORTIE" id="opt-sortie">Sortie / versement / dégagement</option></select></label>
+                <label><span>N° facture <span id="invoice-star">*</span></span><input id="f-invoice" placeholder="Ex. FAC-2026-001" /></label>
+                <label class="span-2"><span>Client / libellé *</span><input id="f-customer" placeholder="Nom du client ou motif" required /></label>
+                <label><span>Montant (Ar) *</span><input type="number" id="f-amount" min="1" step="1" inputmode="numeric" placeholder="0" required /></label>
+                <label id="wrap-reference" hidden><span>Référence paiement</span><input id="f-reference" placeholder="Transaction / bordereau" /></label>
+                <label id="wrap-bank" hidden><span>Banque *</span><input id="f-bank" /></label>
+                <label id="wrap-document" hidden><span>N° document *</span><input id="f-document" /></label>
+                <label id="wrap-maturity" hidden><span>Échéance <span id="maturity-star"></span></span><input type="date" id="f-maturity" /></label>
+                <label class="span-2 fr-audit-choice" id="wrap-fr" hidden><span><input type="checkbox" id="f-fr" /> FR — contrôle par l’audit hebdomadaire</span><small id="fr-hint">À cocher pour une FR saisie avec la référence d’origine. Une FR concernant une journée déjà validée sera conservée pour l’audit, sans bloquer la caisse.</small></label>
+                <label class="span-2"><span>Observation</span><textarea id="f-notes" rows="3"></textarea></label>
+            </div>
+            <div class="inline-error" id="entry-error" hidden>@Icons.Icon("warning", 17)<span id="entry-error-text"></span></div>
+        </div>
+        <aside class="entry-side">
+            <article class="panel ticket-preview">
+                <div class="preview-head">
+                    <span class="preview-icon">@Icons.Icon("receipt", 19)</span>
+                    <div>
+                        <small>APERÇU DU TICKET</small>
+                        <strong id="pv-ticket">ARB-@Model.AgencyCode-@Model.Today.Substring(0, 4)</strong>
+                        <em>Numéro définitif attribué à l’impression</em>
+                    </div>
+                </div>
+                <div class="preview-company"><strong id="pv-company">ARBIOCHEM</strong><span>@Model.AgencyName</span></div>
+                <dl>
+                    <div><dt>Client</dt><dd id="pv-customer">—</dd></div>
+                    <div><dt>Mode</dt><dd id="pv-channel">Espèces</dd></div>
+                    <div><dt>Nature</dt><dd id="pv-nature">Règlement</dd></div>
+                    <div><dt>Facture</dt><dd id="pv-invoice">—</dd></div>
+                </dl>
+                <div class="preview-total"><span>Montant</span><strong id="pv-amount">0 Ar</strong></div>
+                <ul class="preview-notes">
+                    <li>@Icons.Icon("check", 13) Statut initial : À imputer</li>
+                    <li>@Icons.Icon("print", 13) Impression : un exemplaire</li>
+                </ul>
+            </article>
+            </br>
+            <button class="primary-button save-operation" id="entry-submit" type="submit" @(canSave ? "" : "disabled")><span id="entry-submit-label">Enregistrer et imprimer</span>@Icons.Icon("chevron", 17)</button>
+            <small class="validation-note">@Icons.Icon("lock", 13) Le ticket reste immuable ; seul le statut SAGE peut évoluer.</small>
+        </aside>
+    </form>
+</div>

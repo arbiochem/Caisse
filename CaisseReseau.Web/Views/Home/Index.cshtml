@@ -1,0 +1,171 @@
+@model DashboardVm
+@{
+    var ops = Model.Operations;
+    var entries = ops.Where(o => o.Direction == "ENTREE").ToList();
+    var total = entries.Sum(o => o.Amount);
+    var cash = ops.Where(o => o.Channel == "ESPECE").Sum(o => o.Direction == "ENTREE" ? o.Amount : -o.Amount)
+        + Model.Sessions.Sum(s => s.CompanyBalances.Sum(b => b.CarriedBalance + b.CashFund));
+    var pending = ops.Where(o => o.SageStatus == Domain.ToImpute).ToList();
+    var active = Model.AgencyCode == "ALL" ? null : Model.Sessions.FirstOrDefault();
+    var companyClosures = Model.Closures.Count;
+    var isAll = Model.AgencyCode == "ALL";
+    var openCount = Model.Sessions.Count(s => s.Status == "OPEN");
+    var closedCount = Model.Sessions.Count(s => s.Status == "CLOSED");
+    var dutyClass = (active != null || (isAll && Model.Sessions.Count > 0)) ? "is-open" : "needs-opening";
+    var dutyLabel = isAll ? "Caisses du jour" : active != null && active.Status == "CLOSED" ? "Caisse fermée" : "Caissier en poste";
+    var dutyTitle = isAll ? openCount + " ouverte(s) · " + closedCount + " fermée(s)" : active != null ? active.CashierName : "Caisse non ouverte";
+    string dutyText;
+    if (active == null) dutyText = "Ouverture possible à partir de 06 h.";
+    else if (active.ClosedAt.HasValue) dutyText = "Ouverture " + Fmt.Time(active.StartedAt) + " · clôture " + Fmt.Time(active.ClosedAt);
+    else dutyText = "Ouverture " + Fmt.Time(active.StartedAt) + " · en cours";
+    var dutyIcon = active != null && active.Status == "CLOSED" ? "lock" : "user";
+    var available = entries.Where(o => o.TransactionNature == "ACOMPTE").Sum(o => o.Amount - o.AllocatedAmount);
+
+    var kpis = new (string Label, string Value, string Note, string Icon, string Tone)[]
+    {
+        ("Total encaissé aujourd’hui", $"{Fmt.Money(total, true)}", entries.Count + " encaissements", "arrow-up", "green"),
+        ("Espèces théoriques", $"{Fmt.Money(cash, true)}", "Reports + fonds + mouvements", "cash", "amber"),
+        ("À imputer dans SAGE", $"{Fmt.Money(pending.Sum(o => o.Amount), true)}", pending.Count + " opération(s) rappelable(s)", "warning", pending.Count > 0 ? "red" : "green"),
+        ("Acomptes disponibles", $"{Fmt.Money(available, true)}", "Solde encore affectable", "receipt", "blue")
+    };
+}
+<link rel="stylesheet" href="~/css/dashboard-pro.css" asp-append-version="true" />
+
+<div class="db">
+
+    @if (Model.CanRegularize && Model.LateOpenCount > 0)
+    {
+        <section class="db-alert" role="alert">
+            <span class="db-alert-icon">@Icons.Icon("warning", 20)</span>
+            <p>
+                <strong>@Model.LateOpenCount clôture(s) en retard à régulariser</strong>
+                <span>Ces journées bloquent l’ouverture suivante de leur agence.</span>
+            </p>
+            <button type="button" class="db-btn db-btn--solid" data-nav="@Url.Action("Index", "Regularization")">Régulariser</button>
+        </section>
+    }
+
+    <header class="db-head">
+        <div>
+            <h1 class="db-title">Bonjour, voici votre caisse.</h1>
+            <p class="db-sub">Suivi des encaissements et décaissements — <strong>@Model.AgencyName</strong></p>
+        </div>
+        <div class="db-deadline">
+            <span class="db-deadline-icon">@Icons.Icon("clock", 20)</span>
+            <div>
+                <small>Plage de clôture</small>
+                <strong>11:00–18:30</strong>
+            </div>
+            <span class="db-deadline-tz">Heure Madagascar</span>
+        </div>
+    </header>
+
+    <section class="db-duty @dutyClass">
+        <svg class="db-rosette" viewBox="-100 -100 200 200" aria-hidden="true" focusable="false">
+            <g class="db-rosette-a">
+                @for (var i = 0; i < 30; i++)
+                {
+                    <ellipse rx="94" ry="34" transform="rotate(@(i * 6))" />
+                }
+            </g>
+            <g class="db-rosette-b">
+                @for (var i = 0; i < 15; i++)
+                {
+                    <ellipse rx="64" ry="22" transform="rotate(@(i * 12 + 6))" />
+                }
+            </g>
+        </svg>
+
+        <span class="db-duty-avatar">@Icons.Icon(dutyIcon, 22)</span>
+        <div class="db-duty-main">
+            <small class="db-duty-label">@dutyLabel</small>
+            <strong>@dutyTitle</strong>
+            <p>@dutyText</p>
+        </div>
+        <div class="db-duty-stat">
+            <small>Clôtures société reçues</small>
+            <strong>@companyClosures</strong>
+            <span>Chaque société possède sa caisse distincte</span>
+        </div>
+        <div class="db-duty-action">
+            @if (Model.CanManage && (active == null || active.Status != "CLOSED"))
+            {
+                <button type="button" class="db-btn db-btn--light" data-open-session>@(active != null ? "Changer de caissier" : "Ouvrir la caisse")</button>
+            }
+            else
+            {
+                <span class="db-chip">@(active != null && active.Status == "CLOSED" ? "Verrouillée jusqu’à 06 h" : "Lecture seule")</span>
+            }
+        </div>
+    </section>
+
+    <section class="db-kpis">
+        @foreach (var k in kpis)
+        {
+            <article class="db-kpi @($"db-tone-{k.Tone}")">
+                <span class="db-kpi-icon">@Icons.Icon(k.Icon, 20)</span>
+                <div>
+                    <p class="db-kpi-label">@k.Label</p>
+                    <p class="db-kpi-value">@k.Value</p>
+                    <p class="db-kpi-note">@k.Note</p>
+                </div>
+            </article>
+        }
+    </section>
+
+    <section class="db-grid">
+        <article class="db-panel">
+            <div class="db-panel-head">
+                <div>
+                    <h2>Dernières opérations</h2>
+                    <p>Imputation possible même après impression ou clôture</p>
+                </div>
+                <button type="button" class="db-linkbtn" data-nav="@Url.Action("Journal", "Operations")">Ouvrir le journal @Icons.Icon("chevron", 15)</button>
+            </div>
+
+            <div class="db-ops">
+                @foreach (var op in ops.Take(8))
+                {
+                    <div class="db-op">
+                        <span class="db-op-icon">@Icons.Icon(Domain.ChannelIcon(op.Channel), 18)</span>
+                        <div class="db-op-main">
+                            <strong>@op.CustomerName</strong>
+                            <span>@op.TicketNumber · @Domain.ChannelLabel(op.Channel) · @Domain.NatureLabel(op.TransactionNature)</span>
+                        </div>
+                        <span class="company-tag @Domain.CompanyClass(op.Company) db-op-company">@Domain.CompanyLabel(op.Company)</span>
+                        <div class="db-op-amount @(op.Direction == "SORTIE" ? "is-out" : "")">
+                            <strong>@(op.Direction == "SORTIE" ? "−" : "+")@Fmt.Money(op.Amount)</strong>
+                            <span class="db-sage @(op.SageStatus == Domain.Imputed ? "is-ok" : "is-wait")">@op.SageStatus</span>
+                        </div>
+                    </div>
+                }
+                @if (ops.Count == 0)
+                {
+                    <div class="db-empty">
+                        <strong>Aucune opération</strong>
+                        <p>Ouvrez la caisse puis enregistrez le premier ticket.</p>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="db-panel">
+            <div class="db-panel-head">
+                <div>
+                    <h2>Règles actives</h2>
+                    <p>Contrôles automatiques</p>
+                </div>
+            </div>
+
+            <ol class="db-rules">
+                <li><span>@Icons.Icon("check", 14)</span><div><strong>Tickets réservés</strong><small>Numérotation unique garantie par la base</small></div></li>
+                <li><span>@Icons.Icon("check", 14)</span><div><strong>Imputation différée</strong><small>À imputer → Imputé, sans modifier le reçu</small></div></li>
+                <li><span>@Icons.Icon("check", 14)</span><div><strong>Clôture par société</strong><small>Comptage et report distincts</small></div></li>
+                <li><span>@Icons.Icon("check", 14)</span><div><strong>Verrou du lendemain</strong><small>Réouverture à partir de 06 h</small></div></li>
+            </ol>
+
+            <button type="button" class="db-btn db-btn--solid db-btn--full" data-nav="@(Model.CanManage ? Url.Action("Index", "Closure") : Url.Action("Index", "Reports"))">@(Model.CanManage ? "Contrôler les clôtures" : "Consulter les rapports")</button>
+        </article>
+    </section>
+
+</div>

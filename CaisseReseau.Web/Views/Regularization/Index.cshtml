@@ -1,0 +1,94 @@
+@model RegularizationVm
+@{
+    var session = Model.Session;
+    var required = Model.Required;
+    var company = Model.Company;
+    var label = Domain.CompanyLabel(company);
+    var existing = session == null ? null : Model.ClosureOf(company);
+    var closedCount = required.Count(c => Model.ClosureOf(c.Code) != null);
+    var variance0 = -Model.Theoretical;
+}
+<div class="view-stack late-closures-view" id="regularization-view" data-agency="@session?.AgencyCode" data-date="@(session != null ? Fmt.Iso(session.BusinessDate) : "")" data-company="@company" data-theoretical="@Model.Theoretical" data-close-url="@Url.Action("CloseCompany", "Regularization")" data-finalize-url="@Url.Action("Finalize", "Regularization")" data-existing="@(existing != null ? "1" : "0")">
+    <section class="section-title"><div><p class="eyebrow">SUPERVISION CAISSE DIRECTE</p><h1>Régulariser une clôture oubliée</h1><p>Les journées antérieures et les caisses du jour encore ouvertes après 18 h 30 sont affichées. Chaque action est datée et signée dans la base de données.</p></div><span class="deadline-badge">@Icons.Icon("lock", 14) Droit spécial audité</span></section>
+    @if (Model.Pending.Count == 0)
+    {
+        <section class="panel">@await Html.PartialAsync("_Empty", ("Aucune clôture en retard", "Aucune caisse ouverte en retard dans votre périmètre. Les caisses du jour apparaissent après 18 h 30, heure de Madagascar."))</section>
+    }
+    else
+    {
+        <section class="panel"><div class="panel-head"><div><h2>@Model.Pending.Count caisse(s) en retard de clôture</h2><p>Agences et journées accessibles à votre compte.</p></div></div>
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>Date</th><th>Agence</th><th>Caissier</th><th>Statut</th><th></th></tr></thead><tbody>
+                @foreach (var row in Model.Pending)
+                {
+                    <tr><td>@Fmt.Date(row.BusinessDate)</td><td><strong>@row.Agency?.Name</strong></td><td>@row.CashierName</td><td><span class="status-badge sage-wait">À RÉGULARISER</span></td><td><button type="button" class="secondary-button" data-nav="@Url.Action("Index", "Regularization", new { session = row.Id })">Afficher</button></td></tr>
+                }
+            </tbody></table></div>
+        </section>
+        <section class="panel late-session-picker"><label><span>Journée à régulariser</span>
+            <select id="late-session-select" data-base="@Url.Action("Index", "Regularization")">
+                @foreach (var row in Model.Pending)
+                {
+                    <option value="@row.Id" selected="@(session != null && row.Id == session.Id)">@row.Agency?.Name — @Fmt.Date(row.BusinessDate) — @row.CashierName</option>
+                }
+            </select></label><div><small>Ouverture enregistrée</small><strong>@Fmt.DateTime(session?.StartedAt)</strong></div><span class="status-badge sage-wait">RESTÉE OUVERTE</span></section>
+        <section class="late-context panel"><span>@Icons.Icon("warning", 19)</span><div><strong>@(session?.Agency?.Name ?? "") · journée du @(session != null ? Fmt.Date(session.BusinessDate) : "—")</strong><p>Le caissier ne peut pas ouvrir une nouvelle journée tant que cette régularisation n’est pas terminée. Saisissez le comptage physique constaté et le motif réel de l’oubli.</p></div></section>
+        <section class="panel closure-switcher"><div class="company-closure-tabs">
+            @foreach (var item in required)
+            {
+                var done = Model.ClosureOf(item.Code) != null;
+                <button type="button" class="@(company == item.Code ? "selected" : "") @(done ? "done" : "")" data-nav="@Url.Action("Index", "Regularization", new { session = session?.Id, company = item.Code })"><span>@item.Label</span>@if (done){@Icons.Icon("check", 13)}</button>
+            }
+            @if (required.Count == 0){<span class="late-no-company">Aucune société active : la journée peut être fermée directement.</span>}
+        </div></section>
+        <form class="closure-layout" id="regularization-form" novalidate>
+            <div class="closure-main">
+                @if (required.Count > 0)
+                {
+                    var movement = Model.CashMovement;
+                    <article class="panel closure-summary"><div class="closure-agency"><div><small>Société à régulariser</small><strong>@label</strong></div><div><small>Caissier déclaré</small><strong>@session?.CashierName</strong></div></div>
+                        <div class="closure-kpis">
+                            <div><span>Report précédent</span><strong>@Fmt.Money(Model.Balance?.CarriedBalance ?? 0)</strong></div>
+                            <div><span>Fond de caisse</span><strong>@Fmt.Money(Model.Balance?.CashFund ?? 0)</strong></div>
+                            <div><span>Mouvements espèces</span><strong class="@(movement < 0 ? "red-text" : "green-text")">@(movement >= 0 ? "+" : "")@Fmt.Money(movement)</strong></div>
+                            <div class="highlight"><span>Caisse théorique</span><strong>@Fmt.Money(Model.Theoretical)</strong></div>
+                        </div>
+                    </article>
+                    <article class="panel count-panel"><div class="panel-head"><div><h2>Comptage réel — @label</h2><p>Indiquez les billets et pièces présents lors du rattrapage.</p></div><span class="counted-total">Compté <strong id="counted-total">0 Ar</strong></span></div>
+                        <div class="denomination-grid">
+                            @foreach (var value in Domain.Denominations)
+                            {
+                                <label><span>@Fmt.Number(value) Ar</span><div><input type="number" min="0" step="1" data-denom="@value" placeholder="0" disabled="@(existing != null)" /><b data-denom-total="@value">= 0 Ar</b></div></label>
+                            }
+                        </div>
+                    </article>
+                    <article class="panel variance-panel @(variance0 == 0 ? "balanced" : "has-variance")" id="variance-panel"><div><span class="variance-icon" id="var-icon">@Icons.Icon(variance0 == 0 ? "check" : "warning", 21)</span><div><small>Écart de caisse</small><strong id="var-value">@(variance0 > 0 ? "+" : "")@Fmt.Money(variance0)</strong><p id="var-text">@(existing != null ? "Cette société a déjà été régularisée." : variance0 == 0 ? "Le comptage correspond à la caisse théorique." : "L’écart sera conservé dans la piste d’audit.")</p></div></div>
+                        <label><span>Motif de la régularisation *</span><textarea id="late-reason" rows="3" placeholder="Ex. oubli de clôture par la caissière" minlength="5"></textarea></label></article>
+                }
+                else
+                {
+                    <article class="panel late-reason-only"><label><span>Motif de la régularisation *</span><textarea id="late-reason" rows="4" placeholder="Ex. journée ouverte sans opération puis clôture oubliée" minlength="5"></textarea></label></article>
+                }
+                <div class="inline-error" id="late-error" hidden>@Icons.Icon("warning", 17)<span id="late-error-text"></span></div>
+                @if (required.Count > 0)
+                {
+                    <button class="primary-button submit-closure" id="late-submit" type="submit" @(existing != null ? "disabled" : "")><span>@(existing != null ? label + " déjà régularisée" : "Régulariser " + label)</span>@Icons.Icon(existing != null ? "check" : "chevron", 17)</button>
+                }
+            </div>
+            <aside class="closure-side">
+                <article class="panel sticky-card late-progress-card"><div class="panel-head"><div><h2>Progression du rattrapage</h2><p>@closedCount/@required.Count société(s) rapprochée(s)</p></div></div>
+                    <div class="late-progress-list">
+                        @foreach (var item in required)
+                        {
+                            var closure = Model.ClosureOf(item.Code);
+                            <div><span class="@(closure != null ? "done" : "pending")">@Icons.Icon(closure != null ? "check" : "clock", 13)</span><div><strong>@item.Label</strong><small>@(closure != null ? "Régularisée " + Fmt.DateTime(closure.RegularizedAt ?? closure.SubmittedAt) : "Comptage en attente")</small></div></div>
+                        }
+                    </div>
+                </article>
+                <article class="panel final-close-card"><h2>Fermeture définitive</h2><p>@(Model.AllClosed ? "Tous les rapprochements requis sont enregistrés." : "Régularisez d’abord chaque société active.")</p>
+                    <button type="button" class="primary-button full" id="late-finalize" @(Model.AllClosed ? "" : "disabled")>Clôturer la journée du @(session != null ? Fmt.Date(session.BusinessDate) : "")</button>
+                    <small>L’heure réelle du rattrapage, votre adresse e-mail et le motif resteront visibles dans les rapports.</small>
+                </article>
+            </aside>
+        </form>
+    }
+</div>

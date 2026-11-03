@@ -1,0 +1,451 @@
+/* Page de connexion — Caisse Réseau
+   Classes préfixées bd- pour ne pas entrer en conflit avec site.css
+   Palette stricte AR Biochem : 3 couleurs uniquement (crème, brun, vert)
+   Note : les classes *1 (bd-id-top1, bd-logo1, ...) servent aussi à la barre latérale. */
+
+:root {
+  --bd-cream: #ece0b5;
+  --bd-brown: #b07a4a;
+  --bd-green: #3e9b48;
+
+  /* alias sémantiques : tous dérivés des 3 couleurs */
+  --bd-desk: var(--bd-cream);
+  --bd-surface: var(--bd-cream);
+  --bd-ink: var(--bd-brown);
+  --bd-muted: var(--bd-brown);
+  --bd-line: rgba(176, 122, 74, 0.55);
+  --bd-field-line: var(--bd-brown);
+  --bd-primary: var(--bd-green);
+  --bd-stub: 22rem;             /* largeur de la souche */
+  --bd-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --bd-display: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Segoe UI", sans-serif;
+}
+
+.bd-body {
+  margin: 0;
+  background: var(--bd-desk);
+}
+
+.bd-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+  font-family: var(--bd-sans);
+  color: var(--bd-ink);
+}
+
+.bd-page *,
+.bd-page *::before,
+.bd-page *::after { box-sizing: border-box; }
+
+/* L'ombre est portée par l'enveloppe pour suivre les encoches du ticket */
+.bd-wrap {
+  width: min(100%, 58rem);
+  filter: drop-shadow(0 1px 1px rgba(176, 122, 74, 0.35))
+          drop-shadow(0 18px 32px rgba(176, 122, 74, 0.45));
+}
+
+/* Carte = ticket : souche à gauche, partie à remplir à droite.
+   Deux encoches semi-circulaires, en haut et en bas de la ligne de séparation. */
+.bd-card {
+  display: grid;
+  grid-template-columns: var(--bd-stub) minmax(0, 1fr);
+  background: var(--bd-surface);
+  border: 2px solid var(--bd-brown);
+  border-radius: 20px;
+  overflow: hidden;
+  -webkit-mask:
+    radial-gradient(circle 13px at var(--bd-stub) 0, #0000 97%, #000),
+    radial-gradient(circle 13px at var(--bd-stub) 100%, #0000 97%, #000);
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle 13px at var(--bd-stub) 0, #0000 97%, #000),
+    radial-gradient(circle 13px at var(--bd-stub) 100%, #0000 97%, #000);
+  mask-composite: intersect;
+}
+
+/* ---------- Souche ---------- */
+.bd-id {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2.5rem;
+  padding: 2rem 2rem 2.1rem;
+  background: var(--bd-brown);
+  color: var(--bd-cream);
+  overflow: hidden;
+}
+
+/* Perforation : petites morsures crème le long du bord droit */
+.bd-id::after {
+  content: "";
+  position: absolute;
+  top: 2.4rem;
+  bottom: 2.4rem;
+  right: 0;
+  width: 6px;
+  background: radial-gradient(circle at 100% 50%, var(--bd-surface) 3px, transparent 3.6px) 0 0 / 6px 14px repeat-y;
+  z-index: 2;
+}
+
+/* Guilloché : le motif de sécurité des chèques et des billets */
+.bd-rosette {
+  position: absolute;
+  right: -11rem;
+  bottom: -11rem;
+  width: 31rem;
+  height: 31rem;
+  fill: none;
+  stroke-width: 0.3;
+  pointer-events: none;
+  animation: bd-reveal 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.bd-rosette-a { stroke: var(--bd-cream); stroke-opacity: 0.3; }
+.bd-rosette-b { stroke: var(--bd-green); stroke-opacity: 0.7; }
+
+@keyframes bd-reveal {
+  from { opacity: 0; transform: rotate(-14deg) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-rosette { animation: none; }
+}
+
+.bd-id-top,
+.bd-points { position: relative; z-index: 1; }
+
+.bd-logo {
+  display: block;
+  width: 8.5rem;
+  height: auto;
+  border-radius: 6px;
+}
+
+.bd-brandname {
+  margin: 2.2rem 0 0.2rem;
+  font-family: var(--bd-display);
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1;
+  font-stretch: 75%;
+  font-variation-settings: "wdth" 75;
+}
+
+.bd-brandsub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--bd-cream);
+}
+
+.bd-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  color: var(--bd-cream);
+}
+
+.bd-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bd-points li::before {
+  content: "";
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%233e9b48'/%3E%3Cpath d='M4.5 8.3l2.3 2.3 4.7-4.9' fill='none' stroke='%23ece0b5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ---------- Variante "1" (utilisée par la barre latérale) ---------- */
+.bd-id-top1,
+.bd-points1 { position: relative; z-index: 1; }
+
+.bd-logo1 {
+  display: block;
+  width: 15.5rem;
+  height: auto;
+  border-radius: 6px;
+}
+
+.bd-brandname1 {
+  margin: 2.2rem 0 0.2rem;
+  font-family: var(--bd-display);
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1;
+  font-stretch: 75%;
+  font-variation-settings: "wdth" 75;
+  text-align: center;
+}
+
+.bd-brandsub1 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--bd-cream);
+  text-align: center;
+}
+
+.bd-points1 {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  color: var(--bd-cream);
+}
+
+.bd-points1 li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bd-points1 li::before {
+  content: "";
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%233e9b48'/%3E%3Cpath d='M4.5 8.3l2.3 2.3 4.7-4.9' fill='none' stroke='%23ece0b5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ---------- Partie à remplir ---------- */
+.bd-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2.75rem 3rem 1.5rem;
+  background: var(--bd-surface);
+}
+
+.bd-content {
+  flex: 1;
+  width: 100%;
+  max-width: 25rem;
+  margin: auto 0;
+}
+
+.bd-title {
+  margin: 0;
+  font-family: var(--bd-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1.05;
+  font-stretch: 75%;
+  font-variation-settings: "wdth" 75;
+  text-wrap: balance;
+  color: var(--bd-brown);
+}
+
+.bd-intro {
+  margin: 0.6rem 0 1.75rem;
+  max-width: 38ch;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--bd-muted);
+}
+
+/* Champs */
+.bd-field { margin-bottom: 1.1rem; }
+
+.bd-field > label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--bd-brown);
+}
+
+.bd-input { position: relative; }
+
+.bd-input input {
+  display: block;
+  width: 100%;
+  height: 3rem;
+  padding: 0 0.9rem;
+  border: 2px solid var(--bd-field-line);
+  border-radius: 10px;
+  background: var(--bd-surface);
+  font: inherit;
+  font-size: 1rem;
+  color: var(--bd-brown);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.bd-input input.has-toggle { padding-right: 3rem; }
+
+.bd-input input::placeholder { color: var(--bd-brown); opacity: 0.6; }
+.bd-input input:hover { border-color: var(--bd-green); }
+
+.bd-input input:focus {
+  outline: none;
+  border-color: var(--bd-green);
+  box-shadow: 0 0 0 3px rgba(62, 155, 72, 0.35);
+}
+
+/* Afficher / masquer le mot de passe */
+.bd-eye {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: grid;
+  place-items: center;
+  margin-top: -1.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bd-brown);
+  cursor: pointer;
+}
+
+.bd-eye:hover { background: rgba(62, 155, 72, 0.18); color: var(--bd-green); }
+
+.bd-eye svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bd-eye .eye-off { display: none; }
+.bd-eye[aria-pressed="true"] .eye-open { display: none; }
+.bd-eye[aria-pressed="true"] .eye-off { display: block; }
+
+.bd-caps {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--bd-brown);
+}
+
+/* Liens */
+.bd-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.2rem 0 1.25rem;
+}
+
+.bd-row--left {
+  justify-content: flex-start;
+  margin: 1.1rem 0 0;
+}
+
+.bd-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--bd-green);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.bd-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.bd-link:focus-visible,
+.bd-eye:focus-visible,
+.bd-submit:focus-visible {
+  outline: 3px solid var(--bd-green);
+  outline-offset: 2px;
+}
+
+/* Messages */
+.bd-msg {
+  margin-bottom: 1.1rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid;
+  border-radius: 10px;
+  background: var(--bd-surface);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.bd-msg--error { border-color: var(--bd-brown); color: var(--bd-brown); }
+.bd-msg--ok    { border-color: var(--bd-green); color: var(--bd-green); }
+
+/* Bouton */
+.bd-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 3rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--bd-green);
+  color: var(--bd-cream);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.bd-submit:hover { opacity: 0.88; }
+
+.bd-submit:disabled { cursor: progress; opacity: 0.8; }
+
+.bd-submit.is-loading::before {
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(236, 224, 181, 0.4);
+  border-top-color: var(--bd-cream);
+  border-radius: 50%;
+  animation: bd-spin 0.7s linear infinite;
+}
+
+@keyframes bd-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-submit.is-loading::before { animation: none; }
+}
+
+.bd-help {
+  margin: 1.1rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--bd-muted);
+}
+
+.bd-secure {
+  margin: 1.5rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bd-line);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--bd-muted);
+}
+
+/* ---------- Mobile : la souche passe en haut ---------- */
+@media (max-width: 48rem) {
+  .bd-card {
+    grid-template-columns: 1fr;
+    -webkit-mask: none;
+    mask: none;
+  }
+
+  .bd-id { gap: 1.5rem; padding: 1.5rem; }
+  .bd-id::after { display: none; }
+  .bd-rosette { right: -9rem; bottom: -12rem; width: 24rem; height: 24rem; }
+  .bd-brandname { margin-top: 1.4rem; font-size: 1.8rem; }
+  .bd-points { display: none; }
+  .bd-main { padding: 1.75rem 1.5rem 1.25rem; }
+  .bd-title { font-size: 1.9rem; }
+}

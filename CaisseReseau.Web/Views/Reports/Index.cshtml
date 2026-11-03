@@ -1,0 +1,76 @@
+@model ReportsVm
+@{
+    var ops = Model.Operations;
+    var entries = ops.Where(o => o.Direction == "ENTREE").ToList();
+    var exits = ops.Where(o => o.Direction == "SORTIE").ToList();
+    var totalEntries = entries.Sum(o => o.Amount);
+    var totalExits = exits.Sum(o => o.Amount);
+    var pending = ops.Where(o => o.SageStatus == Domain.ToImpute).ToList();
+    var multi = Model.Agencies.Count > 1;
+    var today = Fmt.Iso(MadagascarTime.Today);
+    var weekAgo = Fmt.Iso(MadagascarTime.Today.AddDays(-6));
+}
+<div class="view-stack reports-view" id="reports-view" data-export-url="@Url.Action("Export", "Reports")" data-fr-url="@Url.Action("Fr", "Audit")">
+    <section class="section-title report-title"><div><p class="eyebrow">CONSOLIDATION AUTOMATIQUE</p><h1>Rapports de caisse</h1><p>Un dossier par agence, un classeur par société et des onglets prêts à contrôler.</p></div><div><button type="button" class="secondary-button" id="report-print">@Icons.Icon("print", 17) Imprimer / PDF</button><button type="button" class="primary-button" id="report-export">@Icons.Icon("download", 17) Rapports Excel par agence (.zip)</button></div></section>
+    <form method="get" class="panel report-filters report-filters-wide" id="report-form">
+        <label><span>Du</span><input type="date" name="from" value="@Model.From" /></label>
+        <label><span>Au</span><input type="date" name="to" value="@Model.To" /></label>
+        <label><span>Agence</span><select name="agency" @(multi ? "" : "disabled")>
+            @if (multi){<option value="ALL" selected="@(Model.Agency == "ALL")">Toutes les agences</option>}
+            @foreach (var item in Model.Agencies){<option value="@item.Code" selected="@(Model.Agency == item.Code)">@item.Name</option>}
+        </select></label>
+        <label><span>Société</span><select name="company"><option value="ALL">Toutes</option>@foreach (var item in Domain.Companies){<option value="@item.Code" selected="@(Model.Company == item.Code)">@item.Label</option>}</select></label>
+        <label><span>Mode</span><select name="channel"><option value="ALL">Tous</option>@foreach (var item in Domain.Channels){<option value="@item.Value" selected="@(Model.Channel == item.Value)">@item.Label</option>}</select></label>
+        <label><span>Nature</span><select name="nature"><option value="ALL">Toutes</option>@foreach (var value in Domain.AllNatures){<option value="@value" selected="@(Model.Nature == value)">@Domain.NatureLabel(value)</option>}</select></label>
+        <span class="filter-result"><strong>@ops.Count opérations affichées</strong><small>L’export utilise la période et l’agence sélectionnées.</small></span>
+    </form>
+    <section class="kpi-grid report-kpis">
+        @await Html.PartialAsync("_Kpi", ("Entrées", Fmt.Money(totalEntries, true), entries.Count + " encaissement(s)", "arrow-up", "green"))
+        @await Html.PartialAsync("_Kpi", ("Sorties", Fmt.Money(totalExits, true), exits.Count + " décaissement(s)", "arrow-down", "red"))
+        @await Html.PartialAsync("_Kpi", ("Solde net", Fmt.Money(totalEntries - totalExits, true), "Entrées moins sorties", "cash", "blue"))
+        @await Html.PartialAsync("_Kpi", ("À imputer SAGE", pending.Count.ToString(), Fmt.Money(pending.Sum(o => o.Amount), true), "warning", "amber"))
+    </section>
+    <section class="panel report-table-panel"><details id="fr-panel"><summary><strong>FR à contrôler par l’audit</strong></summary>
+        <p>Pièces de sortie marquées FR, conservées pour le contrôle hebdomadaire de l’audit. Elles ne bloquent pas la caisse.</p>
+        <div class="report-filters"><label>Reçues du<input type="date" id="fr-from" value="@weekAgo" /></label><label>au<input type="date" id="fr-to" value="@today" /></label><button type="button" class="secondary-button" id="fr-load">Afficher les FR</button><button type="button" class="secondary-button" id="fr-export" disabled>Exporter pour l’audit (CSV)</button></div>
+        <p role="alert" id="fr-error" hidden></p>
+        <div id="fr-result" hidden><p id="fr-count"></p><div class="table-scroll"><table class="data-table"><thead><tr><th>Agence</th><th>Date</th><th>Ticket / facture</th><th>Société</th><th>Client / libellé</th><th>Montant</th><th>Observation</th><th>Statut</th></tr></thead><tbody id="fr-body"></tbody></table></div></div>
+    </details></section>
+    <section class="panel report-table-panel"><div class="panel-head"><div><h2>Rapport hiérarchique</h2><p>Les niveaux permettent de contrôler chaque société avant la consolidation.</p></div></div>
+        <div class="table-scroll"><table class="data-table report-table"><thead><tr><th>Société / mode / nature</th><th class="num">Opérations</th><th class="num">Entrées</th><th class="num">Sorties</th><th class="num">Solde</th></tr></thead>
+            <tbody>
+                @foreach (var row in Model.Hierarchy)
+                {
+                    <tr class="report-level-@row.Level"><td><strong>@row.Label</strong></td><td class="num">@row.Count</td><td class="num entry-num">@Fmt.Money(row.Entries)</td><td class="num exit-num">@(row.Exits != 0 ? Fmt.Money(row.Exits) : "—")</td><td class="num"><strong>@Fmt.Money(row.Entries - row.Exits)</strong></td></tr>
+                }
+            </tbody>
+            <tfoot><tr><td>TOTAL</td><td class="num">@ops.Count</td><td class="num">@Fmt.Money(totalEntries)</td><td class="num">@Fmt.Money(totalExits)</td><td class="num">@Fmt.Money(totalEntries - totalExits)</td></tr></tfoot>
+        </table></div>
+    </section>
+    <section class="panel report-table-panel"><div class="panel-head"><div><h2>Heures d’ouverture et de clôture</h2><p>Horaires Madagascar enregistrés automatiquement, avec la trace des rattrapages.</p></div></div>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>Date</th><th>Agence</th><th>Caissier</th><th>Ouverture</th><th>Clôture</th><th class="num">Caisse théorique</th><th class="num">Montant comptage espèces</th><th class="num">Écart</th><th>Explication écart</th><th>Statut</th><th>Régularisée par</th></tr></thead>
+            <tbody>
+                @foreach (var row in Model.Sessions)
+                {
+                    var rows = Model.Closures.Where(c => c.AgencyCode == row.AgencyCode && c.ClosureDate == row.BusinessDate).ToList();
+                    var has = rows.Count > 0;
+                    var variance = rows.Sum(c => c.Variance);
+                    var comments = rows.Where(c => !string.IsNullOrWhiteSpace(c.Comment))
+                        .Select(c => Model.Company == "ALL" ? Domain.CompanyLabel(c.Company) + " : " + c.Comment!.Trim() : c.Comment!.Trim());
+                    var explanation = string.Join(" · ", comments);
+                    <tr>
+                        <td>@Fmt.Date(row.BusinessDate)</td><td>@row.Agency?.Name</td><td><strong>@row.CashierName</strong></td><td>@Fmt.Time(row.StartedAt)</td><td>@Fmt.Time(row.ClosedAt)</td>
+                        <td class="num">@(has ? Fmt.Money(rows.Sum(c => c.CashTheoretical)) : "—")</td>
+                        <td class="num">@(has ? Fmt.Money(rows.Sum(c => c.CashCounted)) : "—")</td>
+                        <td class="num @(has && variance != 0 ? "exit-num" : "")"><strong>@(has ? Fmt.Money(variance) : "—")</strong></td>
+                        <td>@(explanation.Length > 0 ? explanation : "—")</td>
+                        <td><span class="@(row.Status == "CLOSED" ? "status-badge sage-ok" : "status-badge sage-wait")">@(row.Status == "CLOSED" ? row.ClosedLate ? "Fermée tardivement" : "Fermée" : "En cours")</span>@if (row.ClosedLate){<small class="nature-label">@row.LateClosureReason</small>}</td>
+                        <td>@if (row.RegularizedBy != null){<span class="ticket-cell"><strong>@row.RegularizedBy</strong><small>@Fmt.DateTime(row.RegularizedAt)</small></span>}else{<text>—</text>}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Model.Sessions.Count == 0){ @await Html.PartialAsync("_Empty", ("Aucune ouverture", "Aucune session de caisse sur cette période.")) }
+        </div>
+    </section>
+</div>

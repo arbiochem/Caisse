@@ -1,0 +1,36 @@
+@model SessionDialogModel
+<div class="session-dialog-backdrop" id="session-dialog" role="presentation" hidden data-exists="@(Model.Exists ? "1" : "0")" data-status="@Model.Status" data-agency="@Model.AgencyCode">
+    <section class="session-dialog session-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="session-dialog-title">
+        <div class="session-dialog-head"><div class="session-dialog-mark">JC</div><div><p>@(Model.Exists ? "RELÈVE DE CAISSE" : "OUVERTURE JOURNALIÈRE")</p><h2 id="session-dialog-title">Qui assure la caisse aujourd’hui&nbsp;?</h2></div></div>
+        <form id="session-form">
+            <div class="session-fields">
+                <label><span>Agence</span><select id="session-agency" disabled><option value="@Model.AgencyCode">@Model.AgencyName</option></select></label>
+                <label><span>Nom du caissier en poste</span><input id="session-cashier" value="@Model.Cashier" placeholder="Nom et prénom" autocomplete="name" /></label>
+            </div>
+            <div class="opening-balance-card"><div><small>Report total de la dernière clôture</small><strong>@Fmt.Money(Model.ReportTotal)</strong></div><span>Le détail est conservé séparément pour chaque société.</span></div>
+            @if (!Model.Exists)
+            {
+                <label class="fund-toggle"><input type="checkbox" id="session-use-funds" /><span><strong>Ajouter un fond de caisse</strong><small>Optionnel, uniquement à la première ouverture du jour.</small></span></label>
+                <div class="fund-grid" id="session-funds" hidden>
+                    @foreach (var company in Domain.Companies)
+                    {
+                        <label><span>@company.Label</span><input type="number" min="0" step="100" inputmode="numeric" data-fund="@company.Code" placeholder="0" /><small>Report : @Fmt.Money(Model.Reports.GetValueOrDefault(company.Code))</small></label>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="handover-note"><strong>Relève sans réouverture :</strong> les reports et fonds restent inchangés. Les prochaines opérations porteront le nom du nouveau caissier.</div>
+            }
+            @if (Model.Status == "CLOSED")
+            {
+                <div class="session-error">Cette caisse est fermée. Réouverture autorisée demain à partir de 06 h.</div>
+            }
+            <div class="session-error" id="session-error" hidden></div>
+            <div class="session-dialog-actions">
+                <button type="button" class="secondary-button" id="session-cancel">Revenir à la caisse</button>
+                <button type="submit" class="primary-button" id="session-submit" @(Model.Status == "CLOSED" ? "disabled" : "")>@(Model.Exists ? "Confirmer la relève" : "Ouvrir la caisse")</button>
+            </div>
+        </form>
+    </section>
+</div>
